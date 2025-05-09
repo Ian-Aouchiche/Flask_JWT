@@ -32,7 +32,6 @@ def formulaire():
 # Route de login
 @app.route("/login", methods=["POST"])
 def login():
-    # Compatibilité JSON et formulaire
     if request.is_json:
         username = request.json.get("username", None)
         password = request.json.get("password", None)
@@ -45,7 +44,6 @@ def login():
 
     access_token = create_access_token(identity=username, additional_claims={"role": "admin"})
     
-    # Si formulaire HTML → on stocke le token dans un cookie
     if not request.is_json:
         resp = make_response(redirect("/protected"))
         resp.set_cookie("access_token_cookie", access_token)
@@ -53,7 +51,7 @@ def login():
 
     return jsonify(access_token=access_token)
 
-# Route protégée
+
 @app.route("/protected", methods=["GET"])
 @jwt_required()
 def protected():
