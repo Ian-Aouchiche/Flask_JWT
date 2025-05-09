@@ -43,7 +43,7 @@ def login():
     if username != "test" or password != "test":
         return jsonify({"msg": "Mauvais utilisateur ou mot de passe"}), 401
 
-    access_token = create_access_token(identity=username, additional_claims={"role": "admin"})
+    access_token = create_access_token(identity=username, additional_claims={"role": "user"})
     
     # Si formulaire HTML → on stocke le token dans un cookie
     if not request.is_json:
