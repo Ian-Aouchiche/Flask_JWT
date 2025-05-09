@@ -39,10 +39,12 @@ def login():
         username = request.form.get("username", None)
         password = request.form.get("password", None)
 
-    if username != "test" or password != "test":
+    if username != "test" and username != "admin" or password != "test":
         return jsonify({"msg": "Mauvais utilisateur ou mot de passe"}), 401
 
-    access_token = create_access_token(identity=username, additional_claims={"role": "admin"})
+    # 🔽 Rôle selon utilisateur
+    role = "admin" if username == "admin" else "user"
+    access_token = create_access_token(identity=username, additional_claims={"role": role})
     
     if not request.is_json:
         resp = make_response(redirect("/protected"))
