@@ -1,43 +1,73 @@
-from flask import Flask
-from flask import render_template
-from flask import json
-from flask import jsonify
-from flask import request
+from flask import Flask, render_template, request, jsonify, make_response, redirect
+from flask_jwt_extended import (
+    JWTManager, create_access_token, get_jwt_identity,
+    jwt_required, get_jwt
+)
+from datetime import timedelta
 
-from flask_jwt_extended import create_access_token
-from flask_jwt_extended import get_jwt_identity
-from flask_jwt_extended import jwt_required
-from flask_jwt_extended import JWTManager
-                                                                                                                                       
-app = Flask(__name__)                                                                                                                  
-                                                                                                                                       
+app = Flask(__name__)
+
 # Configuration du module JWT
-app.config["JWT_SECRET_KEY"] = "abcd"  # Ma clée privée
+app.config["JWT_SECRET_KEY"] = "abcd"
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=1)
+app.config["JWT_TOKEN_LOCATION"] = ["headers", "cookies"]
+app.config["JWT_COOKIE_CSRF_PROTECT"] = False  # simplifie pour l'atelier
 jwt = JWTManager(app)
 
 @app.route('/')
 def hello_world():
     return render_template('accueil.html')
 
-# Création d'une route qui vérifie l'utilisateur et retour un Jeton JWT si ok. test
-# La fonction create_access_token() est utilisée pour générer un jeton JWT.
+# Formulaire simple
+@app.route('/formulaire')
+def formulaire():
+    return '''
+    <form method="POST" action="/login">
+        Nom d'utilisateur : <input type="text" name="username"><br>
+        Mot de passe : <input type="password" name="password"><br>
+        <input type="submit" value="Se connecter">
+    </form>
+    '''
+
+# Route de login
 @app.route("/login", methods=["POST"])
 def login():
-    username = request.json.get("username", None)
-    password = request.json.get("password", None)
+    # Compatibilité JSON et formulaire
+    if request.is_json:
+        username = request.json.get("username", None)
+        password = request.json.get("password", None)
+    else:
+        username = request.form.get("username", None)
+        password = request.form.get("password", None)
+
     if username != "test" or password != "test":
         return jsonify({"msg": "Mauvais utilisateur ou mot de passe"}), 401
 
-    access_token = create_access_token(identity=username)
+    access_token = create_access_token(identity=username, additional_claims={"role": "admin"})
+    
+    # Si formulaire HTML → on stocke le token dans un cookie
+    if not request.is_json:
+        resp = make_response(redirect("/protected"))
+        resp.set_cookie("access_token_cookie", access_token)
+        return resp
+
     return jsonify(access_token=access_token)
 
-
-# Route protégée par un jeton valide
+# Route protégée
 @app.route("/protected", methods=["GET"])
 @jwt_required()
 def protected():
     current_user = get_jwt_identity()
     return jsonify(logged_in_as=current_user), 200
-                                                                                                               
+
+# Route admin protégée par rôle
+@app.route("/admin", methods=["GET"])
+@jwt_required()
+def admin():
+    claims = get_jwt()
+    if claims.get("role") != "admin":
+        return jsonify(msg="Accès refusé, vous n'êtes pas admin"), 403
+    return jsonify(msg="Bienvenue sur la page admin !")
+
 if __name__ == "__main__":
-  app.run(debug=True)
+    app.run(debug=True)
